@@ -1,0 +1,39 @@
+Nombre : Felipe Viaggio
+Email : fviaggio@udesa.edu.ar
+
+Fase 1:
+El ensamblado de 'phase_1' muestra que se carga una cadena fija desde la dirección '0x4c9a60' y se compara con el input usando la función 'strings_not_equal'.  
+Esa función calcula la longitud y compara carácter por carácter.  
+Inspeccionando con 'x/s 0x4c9a60', encontré que la cadena esperada era:  
+"Por la libertad, asi como por la honra, se puede y se debe aventurar la vida."  
+Ingresando exactamente esa frase la comparación es exitosa y se pasa a la fase 2.
+
+Fase 2:
+
+Esta fase convierte dos números de input con 'strtol', y llama a una función llamada 'misterio' con tres argumentos derivados de ellos.  
+Analizando el ensamblado, entendí que 'misterio' contaba la cantidad de bits en 1 del valor 'valor1 + valor2 - 32', y esperaba exactamente 11.  
+Además, se requería que 'valor1 ^ valor2' resultara negativo, lo cual se lograba si 'valor2' tenía el bit 31 en 1 (es decir, era mayor o igual a 2^31). 
+
+Elegi 0 2147583646 pero tambien funciona por ejemplo 0 2147583447
+
+Fase 3:
+
+Esta fase pide como input una palabra y un número. Carga una lista interna de palabras y llama a una función llamada 'cuenta', que realiza una búsqueda binaria recursiva.  
+Esa función compara la palabra ingresada contra las del array, y cuenta cuántos pasos de recursión le lleva encontrarla.
+
+Luego, la bomba compara ese valor con el número ingresado, y también exige que ese número sea mayor que 6.
+
+Para desactivarla, inspeccioné las palabras cargadas internamente con GDB ('x/s $rsi') y conté su posición en la lista. Elegí una palabra que estuviera en el array y que tuviera un índice ≥ 7.  
+Por ejemplo:  
+'ablentar 9'  
+También funcionaban otros como 'abatatar 8'.
+
+Fase 4:
+
+Esta fase toma como input una palabra de 6 letras. Internamente, aplica '& 0xF' (AND con 15) a cada letra del input, y usa el resultado como índice en un array de 16 caracteres. Así construye una nueva cadena, que luego compara con una cadena fija: "lechon".
+
+Para resolverla, extraje el array en GDB, obteniendo:  
+"egmcfaijopnhdbkl"
+
+Luego usé un script en Python que, dado el string objetivo "lechon", buscaba todos los posibles caracteres cuyo valor & 0xF correspondiera con el índice de cada letra dentro del array.  
+Asi obtuve varias. Elegi 'opsK8J' pero por ejemplo tambien funciona opsKhz
