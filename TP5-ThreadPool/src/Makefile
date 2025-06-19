@@ -4,7 +4,7 @@ CXXFLAGS = -std=c++11 -Wall -pthread -g
 
 # Build targets
 TARGET = threadpool
-SRC = thread-pool.cc Semaphore.cc main.cc
+SRC = thread-pool.cc Semaphore.cc tpcustomtest.cc
 
 # Link the target with object files
 $(TARGET): $(SRC)

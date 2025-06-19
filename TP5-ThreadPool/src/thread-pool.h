@@ -14,6 +14,9 @@
 #include <functional>  // for the function template used in the schedule signature
 #include <thread>      // for thread
 #include <vector>      // for vector
+#include <mutex>       // for mutex
+#include <condition_variable> // for condition_variable
+#include <queue>       // for queue
 #include "Semaphore.h" // for Semaphore
 
 using namespace std;
@@ -29,12 +32,15 @@ using namespace std;
  * worker to process.
  */
 typedef struct worker {
-    thread ts;
-    function<void(void)> thunk;
-    /**
-     * Complete the definition of the worker_t struct here...
-     **/
-} worker_t;
+    thread ts;                        // Thread asociado al worker, se ejecuta con el método worker(...)
+    function<void(void)> thunk;       // Función que debe ejecutar este worker cuando es asignado por el dispatcher
+    Semaphore ready;                  // Semáforo que el dispatcher usa para avisar al worker que tiene una tarea lista
+    bool busy = false;                // Indica si el worker está ocupado ejecutando una tarea (true) o disponible (false)
+    mutex lock;                       // Mutex que protege el acceso a 'thunk' y 'busy', para evitar condiciones de carrera
+    // constructor explicito
+    worker() : ready(0){}
+
+  } worker_t;
 
 class ThreadPool {
   public:
@@ -78,7 +84,21 @@ class ThreadPool {
     /* It is incomplete, there should be more private variables to manage the structures... 
     * *
     */
-  
+
+    queue<function<void(void)>> taskQueue; // Cola de tareas pendientes, donde se almacenan los thunks a ejecutar
+
+    int tasksInProgress = 0;               // Número de workers que actualmente están ejecutando una tarea
+                                           // Se usa para saber si el pool sigue activo
+
+    mutex waitLock;                        // Mutex que protege el acceso a tasksInProgress y taskQueue
+                                           // Específicamente para coordinar con la variable condicional
+
+    condition_variable_any allDoneCV;      // Variable condicional utilizada en el método wait()
+                                           // Permite al hilo principal bloquearse hasta que no queden tareas pendientes
+
+    Semaphore tasksAvailable;              // Semáforo que cuenta cuántas tareas están disponibles en la cola
+                                           // El dispatcher hace wait() sobre este semáforo para dormir hasta que haya trabajo
+
     /* ThreadPools are the type of thing that shouldn't be cloneable, since it's
     * not clear what it means to clone a ThreadPool (should copies of all outstanding
     * functions to be executed be copied?).
