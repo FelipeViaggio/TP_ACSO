@@ -90,9 +90,6 @@ class ThreadPool {
     int tasksInProgress = 0;               // Número de workers que actualmente están ejecutando una tarea
                                            // Se usa para saber si el pool sigue activo
 
-    mutex waitLock;                        // Mutex que protege el acceso a tasksInProgress y taskQueue
-                                           // Específicamente para coordinar con la variable condicional
-
     condition_variable_any allDoneCV;      // Variable condicional utilizada en el método wait()
                                            // Permite al hilo principal bloquearse hasta que no queden tareas pendientes
 

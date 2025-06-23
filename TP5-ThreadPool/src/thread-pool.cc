@@ -66,7 +66,7 @@ void ThreadPool::schedule(const function<void(void)>& thunk) {
  *  - haya workers ejecutando tareas.
  */
 void ThreadPool::wait() {
-    unique_lock<mutex> lk(waitLock);  // Tomamos control exclusivo del estado global
+    unique_lock<mutex> lk(queueLock);  // Tomamos control exclusivo del estado global
 
     // Esperamos a que:
     // - la cola de tareas esté vacía
@@ -91,7 +91,11 @@ void ThreadPool::worker(int id) {
         wts[id].ready.wait();
 
         // Si el pool se está destruyendo, salimos del bucle
-        if (done) break;
+        // Protegemos el acceso a 'done' con un mutex
+        {
+            lock_guard<mutex> doneGuard(queueLock);  
+            if (done) break;
+        }
 
         // Bloqueamos su mutex para modificar su estado interno de forma segura
         {
@@ -108,7 +112,7 @@ void ThreadPool::worker(int id) {
 
         // Sección crítica para actualizar la cuenta de workers ocupados
         {
-            lock_guard<mutex> guard(waitLock);
+            lock_guard<mutex> guard(queueLock);
             tasksInProgress--;
 
             // Si no hay tareas en la cola Y no hay ningún worker trabajando,
@@ -136,7 +140,11 @@ void ThreadPool::dispatcher() {
         tasksAvailable.wait();
 
         // Verificamos si estamos destruyendo el pool
-        if (done) break;
+        // Protegemos el acceso a 'done' con un mutex
+        {
+            lock_guard<mutex> doneGuard(queueLock);  
+            if (done) break;
+        }
 
         // Mientras haya tareas en la cola y workers disponibles, seguimos despachando
         while (true) {
@@ -189,7 +197,7 @@ void ThreadPool::dispatcher() {
 
             // Indicamos que hay un worker más trabajando
             {
-                lock_guard<mutex> guard(waitLock);
+                lock_guard<mutex> guard(queueLock);
                 tasksInProgress++;
             }
 
@@ -210,7 +218,12 @@ ThreadPool::~ThreadPool() {
     wait();
 
     // Indicamos que el pool está siendo destruido
-    done = true;
+    // Protegemos la escritura de 'done'
+    {
+        lock_guard<mutex> doneGuard(queueLock);
+        done = true;
+    }
+
 
     // Desbloqueamos al dispatcher en caso de que esté esperando en tasksAvailable.wait()
     tasksAvailable.signal();
